@@ -11,7 +11,8 @@ const route = useRoute()
 const router = useRouter()
 
 const isEdit = computed(() => route.name === 'plan-edit')
-const planId = computed(() => route.params.id)
+const isCopy = computed(() => route.name === 'plan-copy')
+const sourcePlanId = computed(() => route.params.id)
 
 const form = reactive({
   name: '',
@@ -30,23 +31,25 @@ const form = reactive({
 
 const errors = ref({})
 
-if (isEdit.value && planId.value) {
-  const plan = store.planById(planId.value)
-  if (plan) {
+if (isEdit.value || isCopy.value) {
+  const source = store.planById(sourcePlanId.value)
+  if (source) {
     Object.assign(form, {
-      name: plan.name,
-      destination: plan.destination,
-      tripType: plan.tripType,
-      startDate: plan.startDate,
-      endDate: plan.endDate,
-      memberCount: plan.memberCount,
-      memberNames: plan.members.map((m) => m.name).join('、'),
-      transport: plan.transport,
-      accommodation: plan.accommodation,
-      budget: plan.budget || '',
-      notes: plan.notes,
-      photo: plan.photo || '',
+      name: isCopy.value ? `${source.name} 副本` : source.name,
+      destination: source.destination,
+      tripType: source.tripType,
+      startDate: source.startDate,
+      endDate: source.endDate,
+      memberCount: source.memberCount,
+      memberNames: source.members.map((m) => m.name).join('、'),
+      transport: source.transport,
+      accommodation: source.accommodation,
+      budget: source.budget || '',
+      notes: source.notes,
+      photo: source.photo || '',
     })
+  } else {
+    router.replace('/plans')
   }
 }
 
@@ -81,8 +84,11 @@ function submit() {
   }
 
   if (isEdit.value) {
-    store.updatePlan(planId.value, payload)
-    router.push(`/plans/${planId.value}`)
+    store.updatePlan(sourcePlanId.value, payload)
+    router.push(`/plans/${sourcePlanId.value}`)
+  } else if (isCopy.value) {
+    const id = store.duplicatePlan(sourcePlanId.value, payload)
+    if (id) router.push(`/plans/${id}`)
   } else {
     const id = store.createPlan(payload)
     router.push(`/plans/${id}`)
@@ -92,7 +98,14 @@ function submit() {
 
 <template>
   <div class="card" style="max-width: 720px">
-    <h2 class="card-title">{{ isEdit ? '编辑出行计划' : '新建出行计划' }}</h2>
+    <h2 class="card-title">{{ isEdit ? '编辑出行计划' : isCopy ? '复制出行计划' : '新建出行计划' }}</h2>
+
+    <div v-if="isCopy" class="copy-tip">
+      <p>将基于原计划生成一份新计划，请重新确认<strong>出行名称与日期</strong>。</p>
+      <p class="text-muted">
+        行李自定义物品、待办事项会带过来；打包勾选、行程记录与出行总结不会带入。
+      </p>
+    </div>
 
     <div class="form-row">
       <div class="form-group">
@@ -169,7 +182,9 @@ function submit() {
     </div>
 
     <div class="flex gap-8">
-      <button class="btn btn-primary" @click="submit">保存</button>
+      <button class="btn btn-primary" @click="submit">
+        {{ isEdit ? '保存修改' : isCopy ? '创建副本' : '保存' }}
+      </button>
       <button class="btn btn-ghost" @click="router.back()">取消</button>
     </div>
   </div>
@@ -179,5 +194,18 @@ function submit() {
 .form-error {
   color: var(--danger);
   font-size: 12px;
+}
+
+.copy-tip {
+  background: var(--primary-light);
+  border-radius: var(--radius-sm);
+  padding: 12px 14px;
+  margin-bottom: 16px;
+  font-size: 13px;
+  line-height: 1.7;
+}
+
+.copy-tip p {
+  margin: 0;
 }
 </style>

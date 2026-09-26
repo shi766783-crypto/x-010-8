@@ -60,6 +60,7 @@ function onDelete(plan) {
         <div class="plan-actions" @click.stop>
           <button class="btn btn-ghost btn-sm" @click="router.push(`/plans/${plan.id}`)">详情</button>
           <button class="btn btn-ghost btn-sm" @click="router.push(`/plans/${plan.id}/edit`)">编辑</button>
+          <button class="btn btn-ghost btn-sm" @click="router.push(`/plans/${plan.id}/copy`)">复制</button>
           <button class="btn btn-danger btn-sm" @click="onDelete(plan)">删除</button>
         </div>
       </div>

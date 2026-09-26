@@ -97,6 +97,56 @@ export const useTravelStore = defineStore('travel', {
       this.plans = this.plans.filter((p) => p.id !== id)
     },
 
+    // 基于已有计划复制出一份新计划：
+    // 携带行李自定义物品与待办事项；打包勾选、行程记录、出行总结一律不带入
+    duplicatePlan(sourceId, input) {
+      const source = this.planById(sourceId)
+      if (!source) return null
+      const days = daysBetween(input.startDate, input.endDate)
+      const memberNames = buildMemberNames(input)
+      const members = memberNames.map((name) => ({ id: uid(), name }))
+
+      // 行李模板按新的出行类型与天数重新生成，自定义物品按成员顺序映射到新成员，
+      // 所有物品（含自定义）的打包勾选都重置为未打包
+      const oldMembers = source.members || []
+      const luggage = members.map((m, index) => {
+        const items = generateLuggageTemplate({ tripType: input.tripType, days })
+        const oldList = source.luggage.find((l) => l.memberId === oldMembers[index]?.id)
+        const customItems = (oldList?.items || [])
+          .filter((i) => i.custom)
+          .map((i) => ({ id: uid(), name: i.name, category: i.category, custom: true, packed: false }))
+        return { memberId: m.id, items: [...items, ...customItems] }
+      })
+
+      // 待办事项整体带过来，完成状态重置，避免旧行程的完成情况串到新计划
+      const todos = (source.todos || []).map((t) => ({ id: uid(), name: t.name, done: false }))
+
+      const plan = {
+        id: uid(),
+        name: input.name,
+        destination: input.destination,
+        destinationType: getDestinationType(input.tripType),
+        tripType: input.tripType,
+        startDate: input.startDate,
+        endDate: input.endDate,
+        days,
+        memberCount: members.length,
+        transport: input.transport,
+        accommodation: input.accommodation,
+        budget: Number(input.budget) || 0,
+        notes: input.notes,
+        photo: input.photo || '',
+        members,
+        luggage,
+        todos,
+        records: [],
+        summary: null,
+        createdAt: new Date().toISOString(),
+      }
+      this.plans.unshift(plan)
+      return plan.id
+    },
+
     // ===== 行李清单 =====
     _findLuggageList(plan, memberId) {
       let list = plan.luggage.find((l) => l.memberId === memberId)
