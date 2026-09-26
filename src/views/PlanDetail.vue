@@ -52,6 +52,7 @@ function onDelete() {
       <div class="head-right">
         <img v-if="plan.photo" :src="plan.photo" class="detail-photo" alt="目的地照片" />
         <button class="btn btn-ghost btn-sm" @click="router.push(`/plans/${plan.id}/edit`)">编辑</button>
+        <button class="btn btn-ghost btn-sm" @click="router.push(`/plans/${plan.id}/copy`)">复制</button>
         <button class="btn btn-danger btn-sm" @click="onDelete">删除</button>
       </div>
     </div>

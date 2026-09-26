@@ -11,6 +11,7 @@ const route = useRoute()
 const router = useRouter()
 
 const isEdit = computed(() => route.name === 'plan-edit')
+const isCopy = computed(() => route.name === 'plan-copy')
 const planId = computed(() => route.params.id)
 
 const form = reactive({
@@ -30,15 +31,16 @@ const form = reactive({
 
 const errors = ref({})
 
-if (isEdit.value && planId.value) {
+if ((isEdit.value || isCopy.value) && planId.value) {
   const plan = store.planById(planId.value)
   if (plan) {
     Object.assign(form, {
-      name: plan.name,
+      // 复制模式：名称加副本后缀由用户重新确认，日期留空强制重选
+      name: isCopy.value ? `${plan.name} 副本` : plan.name,
       destination: plan.destination,
       tripType: plan.tripType,
-      startDate: plan.startDate,
-      endDate: plan.endDate,
+      startDate: isCopy.value ? '' : plan.startDate,
+      endDate: isCopy.value ? '' : plan.endDate,
       memberCount: plan.memberCount,
       memberNames: plan.members.map((m) => m.name).join('、'),
       transport: plan.transport,
@@ -83,6 +85,9 @@ function submit() {
   if (isEdit.value) {
     store.updatePlan(planId.value, payload)
     router.push(`/plans/${planId.value}`)
+  } else if (isCopy.value) {
+    const id = store.copyPlan(planId.value, payload)
+    router.push(id ? `/plans/${id}` : '/plans')
   } else {
     const id = store.createPlan(payload)
     router.push(`/plans/${id}`)
@@ -92,7 +97,11 @@ function submit() {
 
 <template>
   <div class="card" style="max-width: 720px">
-    <h2 class="card-title">{{ isEdit ? '编辑出行计划' : '新建出行计划' }}</h2>
+    <h2 class="card-title">{{ isEdit ? '编辑出行计划' : isCopy ? '复制出行计划' : '新建出行计划' }}</h2>
+
+    <p v-if="isCopy" class="copy-tip">
+      将基于原计划生成新计划：行李中的自定义物品和待办事项会带过来，打包勾选、行程记录和出行总结不会带入新计划。请确认名称并重新选择出行日期。
+    </p>
 
     <div class="form-row">
       <div class="form-group">
@@ -176,6 +185,15 @@ function submit() {
 </template>
 
 <style scoped>
+.copy-tip {
+  background: var(--bg);
+  border-radius: var(--radius-sm);
+  padding: 10px 12px;
+  font-size: 13px;
+  color: var(--text-secondary);
+  margin-bottom: 16px;
+}
+
 .form-error {
   color: var(--danger);
   font-size: 12px;

@@ -37,17 +37,27 @@ export const useTravelStore = defineStore('travel', {
     },
 
     // ===== 出行计划 =====
-    createPlan(input) {
+    // 根据表单输入构建新计划；copyFrom 存在时携带其自定义物品与待办事项
+    _buildPlan(input, copyFrom = null) {
       const days = daysBetween(input.startDate, input.endDate)
       const destinationType = getDestinationType(input.tripType)
       const memberNames = buildMemberNames(input)
       const members = memberNames.map((name) => ({ id: uid(), name }))
-      const luggage = members.map((m) => ({
-        memberId: m.id,
-        items: generateLuggageTemplate({ tripType: input.tripType, days }),
-      }))
+      const luggage = members.map((m, index) => {
+        const items = generateLuggageTemplate({ tripType: input.tripType, days })
+        // 复制计划：按成员顺序带上源计划的自定义物品，打包状态重置
+        const sourceItems = copyFrom?.luggage[index]?.items || []
+        const customItems = sourceItems
+          .filter((i) => i.custom)
+          .map((i) => ({ id: uid(), name: i.name, category: i.category, custom: true, packed: false }))
+        return { memberId: m.id, items: [...items, ...customItems] }
+      })
+      // 复制计划：待办事项带过来但完成状态重置；否则用默认待办
+      const todos = copyFrom
+        ? copyFrom.todos.map((t) => ({ id: uid(), name: t.name, done: false }))
+        : generateDefaultTodos()
 
-      const plan = {
+      return {
         id: uid(),
         name: input.name,
         destination: input.destination,
@@ -64,11 +74,24 @@ export const useTravelStore = defineStore('travel', {
         photo: input.photo || '',
         members,
         luggage,
-        todos: generateDefaultTodos(),
+        todos,
         records: [],
         summary: null,
         createdAt: new Date().toISOString(),
       }
+    },
+
+    createPlan(input) {
+      const plan = this._buildPlan(input)
+      this.plans.unshift(plan)
+      return plan.id
+    },
+
+    // 基于已有计划生成新计划：行程记录与总结不复制，打包/待办状态重置
+    copyPlan(sourceId, input) {
+      const source = this.planById(sourceId)
+      if (!source) return null
+      const plan = this._buildPlan(input, source)
       this.plans.unshift(plan)
       return plan.id
     },
